@@ -72,7 +72,7 @@
             <div class="stat-bar-container">
               <div class="stat-bar-fill" style="background-image: linear-gradient(to right, #00d4aa, #4da6ff, #ffb870, #f85149);"></div>
             </div>
-            <span class="stat-value" style="font-size: 2em;line-height: 0;">∞</span>
+            <span class="stat-value">未配置</span>
           </template>
         </div>
       </div>
@@ -96,7 +96,7 @@
         <div class="stat-content">
           <span class="net-down">▼ {{ totalRxMonthly }}</span>
           <span class="net-up">▲ {{ totalTxMonthly }}</span>
-          <span v-if="sysConfig.show_tf && server.traffic_limit" class="stat-limit">/ 📦 {{ formatBytes(server.traffic_limit * 1024 * 1024 * 1024) }}</span>
+          <span v-if="sysConfig.show_tf && server.traffic_limit" class="stat-limit">/ 📦 {{ formatBytes(server.traffic_limit * 1000 * 1000 * 1000) }}</span>
         </div>
       </div>
     </div>

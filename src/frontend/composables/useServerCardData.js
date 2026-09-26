@@ -69,7 +69,7 @@ export const getTrafficUsageBytes = (server) => {
 export const calcTrafficUsagePercent = (server) => {
   const limit = parseFloat(server.traffic_limit) || 0
   if (limit <= 0) return 0
-  const limitBytes = limit * 1024 * 1024 * 1024
+  const limitBytes = limit * 1000 * 1000 * 1000
   const usedBytes = getTrafficUsageBytes(server)
   return (usedBytes / limitBytes) * 100
 }
@@ -128,7 +128,7 @@ export function useServerCardData(props) {
   const trafficLimitSummary = computed(() => {
     const limitGb = Number.parseFloat(props.server.traffic_limit) || 0
     if (limitGb <= 0) return null
-    const limitBytes = limitGb * 1024 * 1024 * 1024
+    const limitBytes = limitGb * 1000 * 1000 * 1000
     const usedBytes = getTrafficUsageBytes(props.server)
     return {
       usedBytes,

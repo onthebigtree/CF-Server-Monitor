@@ -127,7 +127,7 @@
         </div>
       </div>
       <div class="stat-item">
-        <div class="stat-label">{{ trans.totalTraffic }}</div>
+        <div class="stat-label">网卡累计流量</div>
         <div class="stat-main-value stat-main-value-sm">{{ formatBytes(stats.globalNetRx) }} ↓ | ↑ {{ formatBytes(stats.globalNetTx) }}</div>
       </div>
       <div class="stat-item">

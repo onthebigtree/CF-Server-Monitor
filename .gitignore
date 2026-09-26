@@ -40,3 +40,10 @@ Thumbs.db
 # Cloudflare Workers
 .wrangler/
 dist/
+
+# Private downstream deployment material
+.secrets/
+wrangler.cfsm.json
+wrangler.*.local.json
+.dev.vars
+.dev.vars.*

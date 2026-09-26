@@ -97,7 +97,7 @@
           <span class="sysinfo-value sysinfo-small">
             {{ formatBytes(trafficUsageBytes) }}
             /
-            {{ server.traffic_limit ? formatBytes(server.traffic_limit * 1024 * 1024 * 1024) : 'Unlimited' }}
+            {{ server.traffic_limit ? formatBytes(server.traffic_limit * 1000 * 1000 * 1000) : '额度未配置' }}
           </span>
         </div>
         <div class="sysinfo-item">

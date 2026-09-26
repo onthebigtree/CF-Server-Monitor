@@ -66,7 +66,7 @@ function envPlugin() {
 }
 
 export default defineConfig({
-  plugins: [vue(), mkcert(), envPlugin()],
+  plugins: [vue(), ...(process.env.CFSM_LOCAL_HTTP === '1' ? [] : [mkcert()]), envPlugin()],
   base: process.env.VITE_BASE || '/',
   resolve: {
     alias: {
@@ -86,7 +86,7 @@ export default defineConfig({
     }
   },
   server: {
-    https: true,
+    https: process.env.CFSM_LOCAL_HTTP !== '1',
     port: 5173,
     proxy: {
       '/api': createWorkerProxy(),

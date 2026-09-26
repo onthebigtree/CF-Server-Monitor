@@ -3,10 +3,10 @@
  * - 规范化：limit(GB) 与阈值百分比，读写两侧唯一入口，避免 "1000"/"1000.0"/1000 之类
  *   字符串/浮点格式差异导致相等判定失真。
  * - getTrafficUsageBytes：与前端 useServerCardData.getTrafficUsageBytes 算法逐一对齐
- *   （total/ul/dl/max，GB = 1024³）。
+ *   （total/ul/dl/max，GB = 1000³）。
  */
 
-export const GB = 1024 * 1024 * 1024;
+export const GB = 1000 * 1000 * 1000;
 
 // 规范化 traffic_limit（单位 GB）：有限正数否则 0
 export function normalizeTrafficLimitGb(value) {
