@@ -1,3 +1,4 @@
+import { preserveNativeQuota } from '../extensions/management/traffic.js';
 import { buildAuthCookie, buildClearAuthCookie, checkAuth, simpleAuthResponse, validateCredentials, generateToken } from '../middleware/auth.js';
 import { getLatestMetricsForAllServers } from '../database/schema.js';
 import { getAllServers, clearServersListCache } from '../utils/cache.js';
@@ -556,7 +557,7 @@ async function handleGetSettingsAction({ env, sys, loadFullSettings }) {
   const fullSettings = loadFullSettings ? await loadFullSettings() : sys;
   return createSuccessResponse({
     success: true,
-    settings: sanitizeAdminSettings(fullSettings),
+    settings: {...sanitizeAdminSettings(fullSettings), management_enabled:env.MANAGEMENT_ENABLED==='true'},
     api_secret: env.API_SECRET
   });
 }
@@ -766,6 +767,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null,
       return authenticatedActionHandler({ request, env, sys, data, loadFullSettings, ctx });
     }
 
+    await preserveNativeQuota(data, env);
     if (data.action === 'save_settings') {
       const settings = data.settings || {};
       if (!String(sys?.password || '').trim() && !String(settings.password || '')) {

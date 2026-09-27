@@ -59,7 +59,8 @@
           <span class="stat-value">{{ diskPercent.toFixed(2) }}%</span>
         </div>
       </div>
-      <div class="stat-row" v-if="sysConfig.show_tf">
+      <QuotaSummary v-if="server.managed_quota" :value="server.managed_quota" />
+      <div class="stat-row" v-if="sysConfig.show_tf && !server.managed_quota">
         <span class="stat-key">USE</span>
         <div class="stat-content stat-content-meter">
           <template v-if="server.traffic_limit">
@@ -96,7 +97,7 @@
         <div class="stat-content">
           <span class="net-down">▼ {{ totalRxMonthly }}</span>
           <span class="net-up">▲ {{ totalTxMonthly }}</span>
-          <span v-if="sysConfig.show_tf && server.traffic_limit" class="stat-limit">/ 📦 {{ formatBytes(server.traffic_limit * 1000 * 1000 * 1000) }}</span>
+          <span v-if="sysConfig.show_tf && server.traffic_limit && !server.managed_quota" class="stat-limit">/ 📦 {{ formatBytes(server.traffic_limit * 1000 * 1000 * 1000) }}</span>
         </div>
       </div>
     </div>
@@ -118,6 +119,7 @@
 </template>
 
 <script setup>
+import QuotaSummary from "../extensions/management/components/QuotaSummary.vue"
 import OsIcon from './OsIcon.vue'
 import ServerLatencyPanel from './ServerLatencyPanel.vue'
 import { DEFAULT_SERVER_CARD_CONFIG, useServerCardData } from '../composables/useServerCardData'

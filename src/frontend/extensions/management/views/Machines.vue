@@ -8,7 +8,7 @@
       <template v-if="m.snapshot">
         <p>{{gb(m.snapshot.used_bytes)}} / {{gb(m.snapshot.quota_bytes)}} GB <strong>{{m.snapshot.used_percent===null?'':m.snapshot.used_percent.toFixed(1)+'%'}}</strong></p>
         <progress v-if="m.snapshot.quota_bytes" :value="m.snapshot.used_bytes||0" :max="m.snapshot.quota_bytes" />
-        <p class="muted">{{forecast(m.snapshot)}} · {{m.snapshot.sample?new Date(m.snapshot.sample.cycle_end*1000).toLocaleDateString()+' 重置':'周期待确认'}}</p>
+        <p class="muted">{{forecast(m.snapshot)}} · {{m.snapshot.billing_confirmed && m.snapshot.sample?new Date(m.snapshot.sample.cycle_end*1000).toLocaleDateString()+' 重置':'周期待确认'}}</p>
         <p v-if="m.snapshot.status==='stale'" role="status">采样已过期</p>
       </template>
       <p v-else>等待机器上报</p>

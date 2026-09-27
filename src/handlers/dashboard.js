@@ -1,3 +1,4 @@
+import { attachManagedQuota } from '../extensions/management/traffic.js';
 import { checkAuth, simpleAuthResponse } from '../middleware/auth.js';
 import { getDashboardLatencyHistory, getLatestMetrics, getLatestMetricsForAllServers } from '../database/schema.js';
 import { getAllServers, getServerDetail } from '../utils/cache.js';
@@ -204,6 +205,7 @@ export async function handleServerAPI(request, env, sys) {
     long_history_points: Number(normalizeLongHistoryPoints(sys.long_history_points))
   };
   
+  await attachManagedQuota([server], env, isLoggedIn);
   return createSuccessResponse(omitNullLossProbeFields(withoutPrivateServerFields(server)));
 }
 
@@ -261,6 +263,7 @@ export async function handleServersAPI(request, env, sys) {
   
   const globalOffline = results.length - globalOnline;
 
+  await attachManagedQuota(results, env, isLoggedIn);
   const data = {
     servers: results,
     latestReportUpdates: realtimeState.latestReportUpdates,

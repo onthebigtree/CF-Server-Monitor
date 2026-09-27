@@ -63,12 +63,12 @@
 
       <div class="form-row mobile-two-row">
         <div class="form-group flex-1">
-          <label class="form-label">{{ trans.trafficLimit }} (GB)</label>
-          <input type="number" name="edit_traffic_limit" autocomplete="off" v-model="editForm.traffic_limit" class="form-input" placeholder="e.g. 1000" min="0" step="1">
+          <label class="form-label">{{ trans.trafficLimit }} (GB)</label><router-link v-if="settings.management_enabled" to="/management/machines">在机器额度中设置</router-link>
+          <input type="number" name="edit_traffic_limit" autocomplete="off" v-model="editForm.traffic_limit" :disabled="settings.management_enabled" class="form-input" placeholder="e.g. 1000" min="0" step="1">
         </div>
         <div class="form-group flex-1">
           <label class="form-label">{{ trans.trafficCalcType }}</label>
-          <select v-model="editForm.traffic_calc_type" class="form-select">
+          <select v-model="editForm.traffic_calc_type" :disabled="settings.management_enabled" class="form-select">
             <option value="total">{{ trans.trafficCalcTotal }}</option>
             <option value="ul">{{ trans.trafficCalcUl }}</option>
             <option value="dl">{{ trans.trafficCalcDl }}</option>
@@ -80,7 +80,7 @@
             {{ trans.trafficResetDay }}
             <HelpTooltip :text="trans.trafficResetDayTip" />
           </label>
-          <select ref="editResetDayRef" name="edit_reset_day" v-model="editForm.reset_day" class="form-select">
+          <select ref="editResetDayRef" name="edit_reset_day" v-model="editForm.reset_day" :disabled="settings.management_enabled" class="form-select">
             <option :value="0">0</option>
             <option v-for="day in 31" :key="day" :value="day">{{ day }}</option>
           </select>
@@ -155,14 +155,14 @@
             {{ trans.rxCorrection }} (GB)
             <HelpTooltip :text="trans.correctionHint" />
           </label>
-          <input type="number" name="edit_rx_correction" autocomplete="off" v-model="editForm.rx_correction" class="form-input" placeholder="0" min="0" step="0.1">
+          <input type="number" name="edit_rx_correction" autocomplete="off" v-model="editForm.rx_correction" :disabled="settings.management_enabled" class="form-input" placeholder="0" min="0" step="0.1">
         </div>
         <div class="form-group flex-1">
           <label class="form-label">
             {{ trans.txCorrection }} (GB)
             <HelpTooltip :text="trans.correctionHint" />
           </label>
-          <input type="number" name="edit_tx_correction" autocomplete="off" v-model="editForm.tx_correction" class="form-input" placeholder="0" min="0" step="0.1">
+          <input type="number" name="edit_tx_correction" autocomplete="off" v-model="editForm.tx_correction" :disabled="settings.management_enabled" class="form-input" placeholder="0" min="0" step="0.1">
         </div>
       </div>
 

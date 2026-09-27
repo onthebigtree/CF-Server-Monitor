@@ -1,0 +1,3 @@
+<template><div class="managed-quota"><span>套餐用量</span><span v-if="value.used_bytes!=null">{{(value.used_bytes/1e9).toFixed(2)}} / {{value.quota_bytes==null?'未知':(value.quota_bytes/1e9).toFixed(0)}} GB <b v-if="value.used_percent!=null">{{value.used_percent.toFixed(1)}}%</b></span><span v-else>暂不可用</span><small v-if="value.status==='stale'">采样过期</small></div></template>
+<script setup>defineProps({value:{type:Object,required:true}})</script>
+<style scoped>.managed-quota{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:12px;padding:8px 0}.managed-quota b{margin-left:6px;color:var(--accent-blue)}</style>
