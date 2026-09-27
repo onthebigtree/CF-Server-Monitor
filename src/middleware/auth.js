@@ -51,9 +51,12 @@ async function verifyJwt(token, secret) {
       return null;
     }
     
+    const header = JSON.parse(atob(encodedHeader));
     const payload = JSON.parse(atob(encodedPayload));
-    
-    if (payload.exp && Date.now() > payload.exp * 1000) {
+    if (header.alg !== 'HS256' || header.typ !== 'JWT' || payload.sub !== 'admin' ||
+        !Number.isSafeInteger(payload.exp) || !Number.isSafeInteger(payload.iat) ||
+        payload.iat > Math.floor(Date.now() / 1000) + 60 || payload.exp <= payload.iat) return null;
+    if (Date.now() >= payload.exp * 1000) {
       return null;
     }
     
@@ -94,13 +97,22 @@ function extractBearerToken(request) {
   return parts[0] === 'Bearer' && parts[1] ? parts[1] : '';
 }
 
-async function verifyToken(token, env, sys) {
+async function credentialVersion(sys) {
+  const bytes = new TextEncoder().encode(JSON.stringify([sys?.username || '', sys?.password || '']));
+  const hash = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(hash), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function verifyToken(token, env, sys, options = {}) {
   if (!token) return false;
   const secret = getJwtSecret(env, sys);
 
   try {
     const payload = await verifyJwt(token, secret);
-    return payload !== null;
+    if (!payload) return false;
+    if (options.requireCredentialVersion && !payload.cv) return false;
+    if (payload.cv && payload.cv !== await credentialVersion(sys)) return false;
+    return true;
   } catch (e) {
     console.error('Auth check error:', e);
     return false;
@@ -110,6 +122,7 @@ async function verifyToken(token, env, sys) {
 export async function generateToken(env, sys) {
   const payload = {
     sub: 'admin',
+    cv: await credentialVersion(sys),
     iat: Math.floor(Date.now() / 1000),
     exp: Math.floor(Date.now() / 1000) + 604800
   };
@@ -118,11 +131,11 @@ export async function generateToken(env, sys) {
   return signJwt(payload, secret);
 }
 
-export async function checkAuth(request, env, sys) {
-  if (await verifyToken(extractBearerToken(request), env, sys)) {
+export async function checkAuth(request, env, sys, options = {}) {
+  if (await verifyToken(extractBearerToken(request), env, sys, options)) {
     return true;
   }
-  return verifyToken(getCookieValue(request, AUTH_COOKIE_NAME), env, sys);
+  return verifyToken(getCookieValue(request, AUTH_COOKIE_NAME), env, sys, options);
 }
 
 export async function checkWebSocketAuth(request, env, sys) {
