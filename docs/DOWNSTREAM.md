@@ -49,24 +49,33 @@ a security correction, keep it in an isolated commit with regression tests rathe
 than replacing the auth system. Review JWT logout and password-change semantics
 before granting management access.
 
-### Extension contract (first implementation)
+### Extension contract
 
 - Set `MANAGEMENT_ENABLED=true` and bind `MANAGEMENT_ADMIN` to the private
   backend's named `AdminAPI` entrypoint. Default is disabled.
 - Native login must be initialized with a password and independent JWT secret.
   Existing tokens without a credential-version claim must sign in again.
-- Public adapter: `/api/management/status`, `/api/management/users`, `/api/management/users/:id`;
-  internal routes are `/v1/status`, `/v1/users`, `/v1/users/:id`.
-- Allowed methods are GET status/list, POST create and PUT edit. Writes require
+- Public adapter uses `/api/management/` for status, users, user subscriptions,
+  usage history and machine settings. Internal routes use `/v1/`.
+  `src/extensions/management/api.js` contains the explicit route allowlist.
+- Allowed methods are route-specific GET, POST and PUT. Writes require
   same-origin requests, JSON and `X-CFSM-Management: 1`; arbitrary routes and
-  query strings are rejected. Browser tokens never reach the service binding.
+  unrecognized query parameters are rejected. Browser tokens never reach the service binding.
 - Edits carry a revision; HTTP 409 means refresh before retrying. Desired grants
   and node-applied grants are separate. The UI must not claim pending work ran.
 - Authentication uses the native administrator only. Changing the username or
   password invalidates new credential-bound tokens. Logout clears this browser;
   it does not centrally revoke a previously copied token.
-- Unavailable authentication/bindings fail closed. No background page polling,
-  probe credentials, proxy UUIDs or node management credentials are added here.
+- Unavailable authentication/bindings fail closed. Machine polling runs only while
+  its page is visible and does not overwrite dirty forms. No probe credentials,
+  proxy UUIDs or node management credentials are added here.
+- An optional private `MANAGEMENT_HOST_MAP` maps native server IDs to stable
+  management host IDs. `traffic.js` attaches authenticated quota summaries using
+  a bounded 30-second isolate cache. Dashboard/detail handlers and ServerBarCard
+  are the small upstream integration points; resource counters remain native.
+- Mapped servers edit quota/calibration only in the management extension. The
+  native edit handler preserves native quota fields; its form links to management.
+  Unmapped servers retain upstream behavior. No mapping values belong in Git.
 
 The management backend is separately versioned and deployed. This extension can
 be tested locally with synthetic data without granting production node control.
