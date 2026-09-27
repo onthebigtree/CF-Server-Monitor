@@ -188,3 +188,20 @@ test("signed non-admin, missing expiry, expired and legacy JWTs cannot access ex
     assert.equal((await handleManagement(req, env, sys)).status, 401);
   }
 });
+
+test('native admin and management share session requirements when extension is enabled',async()=>{
+ const now=Math.floor(Date.now()/1000),header=btoa(JSON.stringify({alg:'HS256',typ:'JWT'}));
+ const body=btoa(JSON.stringify({sub:'admin',iat:now,exp:now+600}));
+ const key=await crypto.subtle.importKey('raw',new TextEncoder().encode(sys.jwt_secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ const sig=await crypto.subtle.sign('HMAC',key,new TextEncoder().encode(header+'.'+body));
+ const legacy=header+'.'+body+'.'+btoa(String.fromCharCode(...new Uint8Array(sig)));
+ const req=new Request('https://example.test/admin/api',{headers:{Cookie:'cfsm_auth='+encodeURIComponent(legacy)}});
+ assert.equal(await checkAuth(req,{...env,MANAGEMENT_ENABLED:'false'},sys),true);
+ assert.equal(await checkAuth(req,env,sys),false);
+ const current=await generateToken(env,sys);
+ for(const path of ['/admin/api','/api/management/status','/api/management/machines']) {
+   const request=new Request('https://example.test'+path,{headers:{Cookie:'cfsm_auth='+encodeURIComponent(current)}});
+   assert.equal(await checkAuth(request,env,sys),true);
+   assert.equal(await checkAuth(request,env,{...sys,password:'changed'}),false);
+ }
+});

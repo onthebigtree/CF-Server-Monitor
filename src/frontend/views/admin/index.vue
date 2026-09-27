@@ -576,6 +576,8 @@
 </template>
 
 <script setup>
+import { managementReturnPath } from '../../extensions/management/navigation.js'
+import { managementRequest } from '../../extensions/management/api.js'
 import { ref, computed, onMounted, watch, nextTick, inject } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TerminalHeader from '../../components/TerminalHeader.vue'
@@ -1255,6 +1257,7 @@ const handleLogin = async () => {
       loadServers(),
       loadLatestAgentVersion()
     ])
+    await returnToManagement()
   } else {
     loginError.value = result.status === 403 ? 'Please complete the verification' : trans.value.errorInvalidUsername
     loginForm.value.password = ''
@@ -1305,6 +1308,15 @@ const logout = async () => {
   window.location.href = '/'
 }
 
+async function returnToManagement() {
+  const path=managementReturnPath(route.query.returnTo);
+  if (!path) return;
+  try {
+    await managementRequest('get','/status');
+    await router.replace(path);
+  } catch { /* Keep native login handling if the session has actually expired. */ }
+}
+
 const checkLoginStatus = () => {
   const token = localStorage.getItem('jwt_token')
   return !!token || appConfig?.authorization === true
@@ -1350,6 +1362,7 @@ const initAdmin = async () => {
       loadServers(),
       loadLatestAgentVersion()
     ])
+    await returnToManagement()
     if (route.query.github_bound === '1') {
       activeTab.value = 'settings'
       saveResult.value = { success: true, message: trans.value.githubBindingSuccess }

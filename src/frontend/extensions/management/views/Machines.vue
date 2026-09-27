@@ -1,7 +1,7 @@
 <template>
   <main class="machines">
     <header><h1>机器额度</h1><button @click="load" :disabled="busy">刷新</button></header>
-    <p v-if="error" role="alert">{{error}}</p>
+    <p v-if="error" role="alert">{{error}} <router-link v-if="needsLogin" :to="managementLoginRoute('/management/machines')">前往登录</router-link></p>
     <p v-if="notice" role="status">{{notice}}</p>
     <section v-if="totalUsed" class="overview"><div class="donut" :style="{background:gradient}" role="img" aria-label="各机器已用流量分布"><span>{{gb(totalUsed)}} GB</span></div><div><h2>各机已用分布</h2><p v-for="(m,i) in distribution" :key="m.host_id"><i :style="{background:colors[i%colors.length]}" />{{m.name}} · {{(m.bytes/totalUsed*100).toFixed(1)}}%</p></div></section>
     <article v-for="m in machines" :key="m.host_id">
@@ -32,7 +32,9 @@
 <script setup>
 import {ref,computed,onMounted,onUnmounted} from 'vue';
 import {managementRequest} from '../api';
+import {managementLoginRoute} from '../navigation.js';
 import {mergeDraftRows,isDraftDirty,discardDraft} from '../drafts.js';
+const needsLogin=ref(false);
 const machines=ref([]),busy=ref(false),error=ref(''),notice=ref(''),canWrite=ref(false);
 const dirty=computed(()=>machines.value.some(isDraftDirty));
 let timer,lastLoad=0;
@@ -44,12 +46,13 @@ const mib=n=>n==null?'未知':(n/1048576).toFixed(1);
 const gb=n=>n===null||n===undefined?'未知':(n/1e9).toFixed(2);
 function forecast(s){const f=s.forecast;if(!f||f.projected_used_bytes===undefined)return '暂无预测';return `预计周期末 ${gb(f.projected_used_bytes)} GB · ${f.state==='at_risk'||f.state==='exhausted'?'可能用完':'额度内'}`;}
 async function refresh(resetId=null){
+  needsLogin.value=false;
   canWrite.value=(await managementRequest('get','/status')).writes_enabled;
   const records=(await managementRequest('get','/machines')).machines;
   machines.value=mergeDraftRows(machines.value,records,'host_id',m=>({draftQuota:m.settings?.quota_bytes==null?'':m.settings.quota_bytes/1e9,draftDay:m.settings?.reset_day??'',draftRefresh:m.settings?.refresh_seconds??60,calibrate:'',clearCalibration:false}),m=>m.settings?.revision,resetId);
   lastLoad=Date.now();
 }
-async function load(){if(busy.value)return;busy.value=true;error.value='';try{await refresh();}catch(e){if([401,403].includes(e.status)){machines.value=[];canWrite.value=false;}error.value=e.status===401?'请先登录':'刷新失败，未保存的输入已保留';}finally{busy.value=false;}}
+async function load(){if(busy.value)return;busy.value=true;error.value='';try{await refresh();}catch(e){if([401,403].includes(e.status)){machines.value=[];canWrite.value=false;}needsLogin.value=e.status===401;error.value=e.status===401?'登录已过期，请重新登录后继续':'刷新失败，未保存的输入已保留';}finally{busy.value=false;}}
 async function save(m){
   if(busy.value)return;busy.value=true;error.value='';notice.value='';
   try{

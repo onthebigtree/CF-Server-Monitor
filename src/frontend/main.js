@@ -1,3 +1,4 @@
+import { isManagementHash } from './extensions/management/navigation.js'
 import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
@@ -288,6 +289,7 @@ const isAdminPath = () => {
 const bridgeAdminPathToHashRoute = () => {
   if (!isAdminPath()) return
   const hash = window.location.hash || ''
+  if (isManagementHash(hash)) return
 
   const legacyHashSuffix = hash.startsWith('#/admin')
     ? hash.slice('#/admin'.length)
@@ -309,7 +311,7 @@ async function initApp() {
 
   const isMultipleMode = hasMultipleApiBases()
   const currentHash = window.location.hash || ''
-  const isAdmin = isAdminPath() || currentHash.startsWith('#admin') || currentHash.startsWith('#/admin')
+  const isAdmin = isAdminPath() || currentHash.startsWith('#admin') || currentHash.startsWith('#/admin') || isManagementHash(currentHash)
 
   // 多站模式公开页面：一次 getAll 获取所有站点配置，检查 Turnstile key 是否可共享。
   let config

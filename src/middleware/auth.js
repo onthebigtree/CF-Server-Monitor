@@ -110,7 +110,9 @@ async function verifyToken(token, env, sys, options = {}) {
   try {
     const payload = await verifyJwt(token, secret);
     if (!payload) return false;
-    if (options.requireCredentialVersion && !payload.cv) return false;
+    // Once management is enabled, native admin, monitor and extensions must
+    // agree on the same session. Legacy tokens cannot bypass credential revocation.
+    if ((env.MANAGEMENT_ENABLED === 'true' || options.requireCredentialVersion) && !payload.cv) return false;
     if (payload.cv && payload.cv !== await credentialVersion(sys)) return false;
     return true;
   } catch (e) {

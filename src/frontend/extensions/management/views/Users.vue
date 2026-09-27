@@ -6,7 +6,7 @@
     </header>
     <p v-if="error && !selectedUser" role="alert">
       {{ error }}
-      <router-link v-if="needsLogin" to="/admin">前往登录</router-link>
+      <router-link v-if="needsLogin" :to="managementLoginRoute('/management/users')">前往登录</router-link>
     </p>
     <p v-if="notice && !selectedUser" role="status">{{notice}}</p>
     <template v-if="status">
@@ -94,6 +94,7 @@
 import { ref, onMounted, computed, nextTick } from "vue";
 import UserOverview from "../components/UserOverview.vue";
 import { managementRequest } from "../api";
+import { managementLoginRoute } from "../navigation.js";
 import UsageHistory from "../components/UsageHistory.vue";
 import {mergeDraftRows,isDraftDirty,discardDraft,disabledUserStatus} from '../drafts.js';
 const notice=ref('');
