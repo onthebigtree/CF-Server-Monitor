@@ -22,9 +22,11 @@ export async function handleManagement(request, env, sys) {
   const routes = new Map([
     ["/status", ["GET"]],
     ["/users", ["GET", "POST"]],
+    ["/history", ["POST"]],
+    ["/machines", ["GET"]],
   ]);
   const methods =
-    routes.get(path) || (/^\/users\/[a-f0-9]{32}$/.test(path) ? ["PUT"] : null);
+    routes.get(path) || (/^\/users\/[a-f0-9]{32}$/.test(path) ? ["PUT"] : /^\/users\/[a-f0-9]{32}\/subscription$/.test(path) ? ["POST"] : /^\/machines\/[a-z0-9_-]{1,40}$/.test(path) ? ["PUT"] : null);
   if (!methods) return reply("not_found", 404);
   if (!methods.includes(request.method))
     return reply("method_not_allowed", 405);

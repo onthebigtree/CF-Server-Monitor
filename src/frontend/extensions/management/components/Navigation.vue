@@ -2,6 +2,7 @@
   <nav v-if="enabled" class="management-nav" aria-label="管理导航">
     <router-link to="/">服务器监控</router-link>
     <router-link to="/management/users">用户与订阅</router-link>
+    <router-link to="/management/machines">机器额度</router-link>
     <router-link to="/admin">设置</router-link>
   </nav>
 </template>

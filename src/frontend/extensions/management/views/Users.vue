@@ -60,8 +60,26 @@
                   : "尚未授权机器"
             }}
           </p>
+          <label>月参考额度 GB<input type="number" min="0.001" step="0.001" v-model="user.draftQuota" :disabled="!canWrite" placeholder="未配置" /></label>
           <button :disabled="busy || !canWrite">保存</button>
         </form>
+        <p v-if="!user.enabled" class="sync">已阻止新连接；已有连接可能继续。</p>
+        <div class="actions">
+          <button type="button" :disabled="busy || !canWrite || !user.enabled" @click="links(user, false)">查看订阅链接</button>
+          <button type="button" :disabled="busy || !canWrite || !user.enabled" @click="resetUser = user">重置链接</button>
+          <button type="button" @click="historyUser = historyUser === user.user_id ? null : user.user_id">使用历史</button>
+        </div>
+        <div v-if="resetUser?.user_id === user.user_id" role="alert">
+          旧订阅链接将失效；已下载的节点仍按用户授权运行。
+          <button :disabled="busy" @click="links(user, true)">确认重置链接</button>
+          <button @click="resetUser = null">取消</button>
+        </div>
+        <div v-if="visibleLinks?.user_id === user.user_id" class="links">
+          <label>Clash<input readonly :value="visibleLinks.mihomo" aria-label="Clash 订阅" /></label>
+          <label>Shadowrocket<input readonly :value="visibleLinks.shadowrocket" aria-label="Shadowrocket 订阅" /></label>
+          <button @click="visibleLinks = null">收起链接</button>
+        </div>
+        <UsageHistory v-if="historyUser === user.user_id" :user-id="user.user_id" :hosts="hosts" />
       </article>
     </template>
   </main>
@@ -69,6 +87,8 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { managementRequest } from "../api";
+import UsageHistory from "../components/UsageHistory.vue";
+const visibleLinks=ref(null), resetUser=ref(null), historyUser=ref(null);
 const users = ref([]),
   hosts = ref([]),
   status = ref(null),
@@ -78,6 +98,7 @@ const users = ref([]),
   needsLogin = ref(false);
 const canWrite = computed(() => status.value?.writes_enabled === true);
 function showError(e) {
+  visibleLinks.value = null;
   if ([401, 403, 404, 503].includes(e.status)) {
     status.value = null;
     users.value = [];
@@ -102,6 +123,7 @@ async function refresh() {
   users.value = data.users.map((u) => ({
     ...u,
     draftName: u.name,
+    draftQuota: u.quota_bytes === null ? "" : u.quota_bytes / 1e9,
     draftEnabled: u.enabled,
     draftHosts: u.hosts.filter((h) => h.allowed).map((h) => h.host_id),
   }));
@@ -142,6 +164,7 @@ async function save(user) {
       name: user.draftName,
       enabled: user.draftEnabled,
       hosts: user.draftHosts,
+      quota_bytes: user.draftQuota === "" ? null : Math.round(Number(user.draftQuota) * 1e9),
     });
     await refresh();
   } catch (e) {
@@ -150,9 +173,20 @@ async function save(user) {
     busy.value = false;
   }
 }
+async function links(user, reset) {
+  busy.value=true; error.value=""; visibleLinks.value=null;
+  try {
+    const data=await managementRequest("post","/users/"+user.user_id+"/subscription",{reset});
+    visibleLinks.value={user_id:user.user_id,...data};resetUser.value=null;
+    if(reset)await refresh();
+  } catch(e){showError(e);} finally{busy.value=false;}
+}
 onMounted(load);
 </script>
 <style scoped>
+.actions {display:flex;gap:8px;flex-wrap:wrap;margin-top:16px;}
+.links {margin-top:14px;display:grid;gap:10px;}
+.links input {width:100%;max-width:none !important;}
 .management-page {
   max-width: 1000px;
   margin: 24px auto;
