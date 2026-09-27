@@ -48,10 +48,11 @@
 
         <div class="batch-edit-section">
           <div class="section-subtitle">{{ trans.monthlyTraffic }}</div>
-          <BatchEditField :enabled="enabled.traffic_limit" :label="`${trans.trafficLimit} (GB)`" @toggle="toggleField('traffic_limit', $event)">
+          <router-link v-if="settings.management_enabled" to="/management/machines">所选机器的套餐、重置日与校准请在「机器额度」设置</router-link>
+          <BatchEditField v-if="!settings.management_enabled" :enabled="enabled.traffic_limit" :label="`${trans.trafficLimit} (GB)`" @toggle="toggleField('traffic_limit', $event)">
             <input type="number" v-model="form.traffic_limit" class="form-input" :disabled="!enabled.traffic_limit" min="0" step="1">
           </BatchEditField>
-          <BatchEditField :enabled="enabled.traffic_calc_type" :label="trans.trafficCalcType" @toggle="toggleField('traffic_calc_type', $event)">
+          <BatchEditField v-if="!settings.management_enabled" :enabled="enabled.traffic_calc_type" :label="trans.trafficCalcType" @toggle="toggleField('traffic_calc_type', $event)">
             <select v-model="form.traffic_calc_type" class="form-select" :disabled="!enabled.traffic_calc_type">
               <option value="total">{{ trans.trafficCalcTotal }}</option>
               <option value="ul">{{ trans.trafficCalcUl }}</option>
@@ -59,7 +60,7 @@
               <option value="max">{{ trans.trafficCalcMax }}</option>
             </select>
           </BatchEditField>
-          <BatchEditField :enabled="enabled.reset_day" :label="trans.trafficResetDay" @toggle="toggleField('reset_day', $event)">
+          <BatchEditField v-if="!settings.management_enabled" :enabled="enabled.reset_day" :label="trans.trafficResetDay" @toggle="toggleField('reset_day', $event)">
             <select v-model="form.reset_day" class="form-select" :disabled="!enabled.reset_day">
               <option :value="0">0</option>
               <option v-for="day in 31" :key="day" :value="day">{{ day }}</option>
@@ -68,10 +69,10 @@
           <BatchEditField :enabled="enabled.traffic_alert_percent" :label="`${trans.trafficAlertPercent} (%)`" @toggle="toggleField('traffic_alert_percent', $event)">
             <input type="number" v-model="form.traffic_alert_percent" class="form-input" :disabled="!enabled.traffic_alert_percent" min="0" max="100" step="1">
           </BatchEditField>
-          <BatchEditField :enabled="enabled.rx_correction" :label="`${trans.rxCorrection} (GB)`" @toggle="toggleField('rx_correction', $event)">
+          <BatchEditField v-if="!settings.management_enabled" :enabled="enabled.rx_correction" :label="`${trans.rxCorrection} (GB)`" @toggle="toggleField('rx_correction', $event)">
             <input type="number" v-model="form.rx_correction" class="form-input" :disabled="!enabled.rx_correction" min="0" step="0.1">
           </BatchEditField>
-          <BatchEditField :enabled="enabled.tx_correction" :label="`${trans.txCorrection} (GB)`" @toggle="toggleField('tx_correction', $event)">
+          <BatchEditField v-if="!settings.management_enabled" :enabled="enabled.tx_correction" :label="`${trans.txCorrection} (GB)`" @toggle="toggleField('tx_correction', $event)">
             <input type="number" v-model="form.tx_correction" class="form-input" :disabled="!enabled.tx_correction" min="0" step="0.1">
           </BatchEditField>
         </div>

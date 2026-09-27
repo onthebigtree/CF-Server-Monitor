@@ -191,7 +191,7 @@
         :show="showEditModal"
         v-model:edit-form="editForm"
         :current-server-name="currentServerName"
-        :settings="settings"
+        :settings="editorSettings(settings, [editForm.id])"
         @save="saveEdit"
         @close="closeEditModal"
         @toggle-auto-update="handleAutoUpdateToggle"
@@ -203,7 +203,7 @@
         :trans="trans"
         :show="showBatchEditModal"
         :selected-count="selectedServers.length"
-        :settings="settings"
+        :settings="editorSettings(settings, selectedServers)"
         :is-wss-report-enabled="isWssReportEnabled"
         :saving="batchEditing"
         @save="saveBatchEdit"
@@ -587,6 +587,7 @@ import SettingsPanel from './components/SettingsPanel.vue'
 import DatabasePanel from './components/DatabasePanel.vue'
 import ThemeStorePanel from './components/ThemeStorePanel.vue'
 import DonationPanel from './components/DonationPanel.vue'
+import { editorSettings, nativeEditPayload } from '../../extensions/management/editor.js'
 import EditServerModal from './components/EditServerModal.vue'
 import BatchEditServersModal from './components/BatchEditServersModal.vue'
 import DeleteServerModal from './components/DeleteServerModal.vue'
@@ -1434,6 +1435,8 @@ const loadSettings = async () => {
       const data = result.data
       const settingsData = data.settings || {}
       settings.value = {
+        management_enabled: settingsData.management_enabled === true,
+        management_host_ids: settingsData.management_host_ids || [],
         site_title: settingsData.site_title || '',
         custom_bg: settingsData.custom_bg || '',
         custom_bg_mobile: settingsData.custom_bg_mobile || '',
@@ -2259,7 +2262,7 @@ const saveEdit = async () => {
   }
 
   try {
-    const result = await adminApiForSite(data)
+    const result = await adminApiForSite(data.action === 'edit' ? nativeEditPayload(data, settings.value) : data)
     if (!result.error) {
       saveResult.value = { success: true, message: getMessage(result.data.message) || trans.value.serverEdited }
       cancelAutoUpdateWarning()
@@ -2392,7 +2395,7 @@ const saveBatchEdit = async () => {
         validationError.value = built.error
         return
       }
-      const result = await adminApiForSite(built.payload)
+      const result = await adminApiForSite(nativeEditPayload(built.payload, settings.value))
       if (result.error) {
         saveResult.value = { success: false, error: getMessage(result.error) || 'Fail' }
         return

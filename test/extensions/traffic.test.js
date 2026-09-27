@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {attachManagedQuota,preserveNativeQuota} from '../../src/extensions/management/traffic.js';
+import {attachManagedQuota,preserveNativeQuota,managedEditorSettings} from '../../src/extensions/management/traffic.js';
 test('quota adapter preserves raw counters and never exposes management to anonymous monitors',async()=>{
  let calls=0;const env={MANAGEMENT_ENABLED:'true',MANAGEMENT_HOST_MAP:'{"server":"host"}',MANAGEMENT_ADMIN:{async fetch(){calls++;return Response.json({machines:[{host_id:'host',snapshot:{used_bytes:50,quota_bytes:null,used_percent:null,status:'quota_unknown'}}]})}}};
  const servers=[{id:'server',net_rx:123,net_tx:456}];await attachManagedQuota(servers,env,false);assert.equal(calls,0);
@@ -8,5 +8,25 @@ test('quota adapter preserves raw counters and never exposes management to anony
 });
 test('native editing cannot overwrite managed quota while unrelated settings survive',async()=>{
  const data={action:'edit',id:'server',name:'renamed',traffic_limit:999,reset_day:22};const env={MANAGEMENT_ENABLED:'true',MANAGEMENT_HOST_MAP:'{"server":"host"}',DB:{prepare(){return {bind(){return {async first(){return {traffic_limit:100,reset_day:9}}}}}}}};
- await preserveNativeQuota(data,env);assert.equal(data.name,'renamed');assert.equal(data.traffic_limit,100);assert.equal(data.reset_day,9);
+ assert.equal(await preserveNativeQuota(data,env),true);
+ delete data.traffic_limit;delete data.reset_day;
+ assert.equal(await preserveNativeQuota(data,env),false);assert.equal(data.name,'renamed');assert.equal(data.traffic_limit,100);assert.equal(data.reset_day,9);
+});
+
+import {editorSettings,nativeEditPayload} from '../../src/frontend/extensions/management/editor.js';
+import {readFileSync} from 'node:fs';
+test('managed settings survive projection and single/batch edits omit only protected fields',()=>{
+ const settings=managedEditorSettings({MANAGEMENT_ENABLED:'true',MANAGEMENT_HOST_MAP:'{"server":"host"}'});
+ assert.equal(editorSettings(settings,['server']).management_enabled,true);
+ assert.equal(editorSettings(settings,['other']).management_enabled,false);
+ assert.equal(editorSettings(settings,['other','server']).management_enabled,true);
+ assert.equal(editorSettings({...settings,management_enabled:false},['server']).management_enabled,false);
+ const payload={action:'edit',id:'server',name:'renamed',note:'updated',price:'20',traffic_limit:100,reset_day:9,rx_correction:1};
+ assert.deepEqual(nativeEditPayload(payload,settings),{action:'edit',id:'server',name:'renamed',note:'updated',price:'20'});
+ assert.deepEqual(nativeEditPayload({...payload,id:'other'},settings),{...payload,id:'other'});
+ // Native settings are explicitly projected; dropping these fields caused the regression.
+ const source=readFileSync(new URL('../../src/frontend/views/admin/index.vue',import.meta.url),'utf8');
+ assert.match(source,/management_enabled: settingsData.management_enabled === true/);
+ assert.match(source,/management_host_ids: settingsData.management_host_ids/);
+ assert.match(source,/nativeEditPayload\(built.payload, settings.value\)/);
 });

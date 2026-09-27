@@ -20,10 +20,19 @@ export async function attachManagedQuota(servers, env, authenticated) {
     if(machine?.snapshot) server.managed_quota={status:machine.snapshot.status,used_bytes:machine.snapshot.used_bytes,quota_bytes:machine.snapshot.quota_bytes,used_percent:machine.snapshot.used_percent};
   }
 }
+export function managedEditorSettings(env) {
+  let mapping; try { mapping=JSON.parse(env.MANAGEMENT_HOST_MAP || '{}'); } catch { mapping={}; }
+  return {management_enabled:env.MANAGEMENT_ENABLED==='true', management_host_ids:Object.keys(mapping)};
+}
 export async function preserveNativeQuota(data,env) {
   if(env.MANAGEMENT_ENABLED!=='true'||data.action!=='edit'||typeof data.id!=='string')return;
   let map;try{map=JSON.parse(env.MANAGEMENT_HOST_MAP||'{}');}catch{return;}
   if(!map[data.id])return;
   const row=await env.DB.prepare('SELECT traffic_limit,traffic_calc_type,reset_day,rx_correction,tx_correction FROM servers WHERE id=?').bind(data.id).first();
-  if(row)Object.assign(data,row);
+  if (!row) return false;
+  // Stale clients must not receive success for discarded quota changes.
+  const changed=Object.keys(row).some(key => data[key] !== undefined && String(data[key] ?? '') !== String(row[key] ?? ''));
+  if (changed) return true;
+  Object.assign(data,row);
+  return false;
 }

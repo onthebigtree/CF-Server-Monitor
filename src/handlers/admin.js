@@ -1,4 +1,4 @@
-import { preserveNativeQuota } from '../extensions/management/traffic.js';
+import { preserveNativeQuota, managedEditorSettings } from '../extensions/management/traffic.js';
 import { buildAuthCookie, buildClearAuthCookie, checkAuth, simpleAuthResponse, validateCredentials, generateToken } from '../middleware/auth.js';
 import { getLatestMetricsForAllServers } from '../database/schema.js';
 import { getAllServers, clearServersListCache } from '../utils/cache.js';
@@ -557,7 +557,7 @@ async function handleGetSettingsAction({ env, sys, loadFullSettings }) {
   const fullSettings = loadFullSettings ? await loadFullSettings() : sys;
   return createSuccessResponse({
     success: true,
-    settings: {...sanitizeAdminSettings(fullSettings), management_enabled:env.MANAGEMENT_ENABLED==='true'},
+    settings: {...sanitizeAdminSettings(fullSettings), ...managedEditorSettings(env)},
     api_secret: env.API_SECRET
   });
 }
@@ -767,7 +767,7 @@ export async function handleAdminAPI(request, env, sys, loadFullSettings = null,
       return authenticatedActionHandler({ request, env, sys, data, loadFullSettings, ctx });
     }
 
-    await preserveNativeQuota(data, env);
+    if (await preserveNativeQuota(data, env)) return createBadRequestResponse('请到「机器额度」修改套餐、重置日或校准；本次未保存。');
     if (data.action === 'save_settings') {
       const settings = data.settings || {};
       if (!String(sys?.password || '').trim() && !String(settings.password || '')) {

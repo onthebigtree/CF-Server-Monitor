@@ -57,7 +57,7 @@ before granting management access.
   Existing tokens without a credential-version claim must sign in again.
 - Public adapter uses `/api/management/` for status, users, user subscriptions,
   usage history and machine settings. Internal routes use `/v1/`.
-  `src/extensions/management/api.js` contains the explicit route allowlist.
+  `src/extensions/management/index.js` contains the explicit route allowlist.
 - Allowed methods are route-specific GET, POST and PUT. Writes require
   same-origin requests, JSON and `X-CFSM-Management: 1`; arbitrary routes and
   unrecognized query parameters are rejected. Browser tokens never reach the service binding.
