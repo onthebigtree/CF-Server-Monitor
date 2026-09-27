@@ -1,3 +1,4 @@
+import {isManagementPath, handleManagement} from './extensions/management/index.js';
 import { initDatabase, weeklyCleanup, getMetricsHistory, clearHistory } from './database/schema.js';
 import { checkOfflineNodes, checkExpiringServers, checkResourceAlerts } from './services/notification.js';
 import { updateDatabase } from './database/updateDatabase.js';
@@ -266,6 +267,13 @@ export default {
     async function ensureFullSettings() {
       sys = await loadSettings(env.DB);
       return sys;
+    }
+
+    if (isManagementPath(path)) {
+      // Fresh account state for privileged operations; do not cache revocation.
+      const managementSettings = env.MANAGEMENT_ENABLED === 'true'
+        ? await loadSiteSettings(env.DB, {forceRefresh: true}) : null;
+      return handleManagement(request, env, managementSettings);
     }
 
     const routes = [

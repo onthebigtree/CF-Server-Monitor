@@ -421,6 +421,7 @@ export const login = async (username, password, turnstileToken = '', apiIndex = 
   
   if (!result.error && result.data && result.data.token) {
     localStorage.setItem('jwt_token', result.data.token)
+    window.dispatchEvent(new Event('cfsm-auth-changed'))
   }
   return result
 }
@@ -431,6 +432,7 @@ export const startGithubLogin = async (apiIndex = 0, mode = 'login') => {
 
 export const logout = () => {
   localStorage.removeItem('jwt_token')
+  window.dispatchEvent(new Event('cfsm-auth-changed'))
 }
 
 export const fetchConfig = async (apiIndex = 0) => {

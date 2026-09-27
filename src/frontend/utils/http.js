@@ -117,6 +117,7 @@ const handleResponse = async (res, options = {}) => {
 const request = async (method, url, body, options = {}) => {
   const { includeAuth = true, includeTurnstile = true, autoRedirect = true, baseUrl = null } = options
   const headers = createHeaders(includeAuth, includeTurnstile, baseUrl, options)
+  if (options.managementRequest === true) headers['X-CFSM-Management'] = '1'
   const base = baseUrl || getApiBases()[0]
 
   try {

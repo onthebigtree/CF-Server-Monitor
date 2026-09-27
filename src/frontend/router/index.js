@@ -1,6 +1,8 @@
+import {managementRoutes} from '../extensions/management/routes'
 import { createRouter, createWebHashHistory } from 'vue-router'
 
 const routes = [
+  ...managementRoutes,
   {
     path: '/',
     name: 'Dashboard',

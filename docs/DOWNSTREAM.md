@@ -22,8 +22,10 @@ Do not deploy directly from a floating upstream branch; pin the reviewed commit.
 - Decimal GB for quota fields and consistent unknown-quota labels.
 - Local HTTP test mode so frontend testing does not install a local root certificate.
 
-These changes preserve the existing deployment behavior. Unified account management
-and node pull synchronization are planned separately and are not implemented here yet.
+The optional management extension adds native-authenticated user creation, editing,
+enabling/disabling and host-grant editing through a separate service binding.
+Node execution, subscriptions and historical usage migration are not implemented
+by this fork. The feature is off unless explicitly configured.
 
 ## Extension boundary
 
@@ -47,8 +49,27 @@ a security correction, keep it in an isolated commit with regression tests rathe
 than replacing the auth system. Review JWT logout and password-change semantics
 before granting management access.
 
-Extension implementation is planned; this baseline does not claim that these
-hooks or the management Worker have already been implemented.
+### Extension contract (first implementation)
+
+- Set `MANAGEMENT_ENABLED=true` and bind `MANAGEMENT_ADMIN` to the private
+  backend's named `AdminAPI` entrypoint. Default is disabled.
+- Native login must be initialized with a password and independent JWT secret.
+  Existing tokens without a credential-version claim must sign in again.
+- Public adapter: `/api/management/status`, `/api/management/users`, `/api/management/users/:id`;
+  internal routes are `/v1/status`, `/v1/users`, `/v1/users/:id`.
+- Allowed methods are GET status/list, POST create and PUT edit. Writes require
+  same-origin requests, JSON and `X-CFSM-Management: 1`; arbitrary routes and
+  query strings are rejected. Browser tokens never reach the service binding.
+- Edits carry a revision; HTTP 409 means refresh before retrying. Desired grants
+  and node-applied grants are separate. The UI must not claim pending work ran.
+- Authentication uses the native administrator only. Changing the username or
+  password invalidates new credential-bound tokens. Logout clears this browser;
+  it does not centrally revoke a previously copied token.
+- Unavailable authentication/bindings fail closed. No background page polling,
+  probe credentials, proxy UUIDs or node management credentials are added here.
+
+The management backend is separately versioned and deployed. This extension can
+be tested locally with synthetic data without granting production node control.
 
 ## Verification
 
