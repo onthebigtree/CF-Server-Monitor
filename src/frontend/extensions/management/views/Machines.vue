@@ -2,6 +2,7 @@
   <main class="machines">
     <header><h1>机器额度</h1><button @click="load" :disabled="busy">刷新</button></header>
     <p v-if="error" role="alert">{{error}}</p>
+    <p v-if="notice" role="status">{{notice}}</p>
     <section v-if="totalUsed" class="overview"><div class="donut" :style="{background:gradient}" role="img" aria-label="各机器已用流量分布"><span>{{gb(totalUsed)}} GB</span></div><div><h2>各机已用分布</h2><p v-for="(m,i) in distribution" :key="m.host_id"><i :style="{background:colors[i%colors.length]}" />{{m.name}} · {{(m.bytes/totalUsed*100).toFixed(1)}}%</p></div></section>
     <article v-for="m in machines" :key="m.host_id">
       <h2>{{m.name}}</h2>
@@ -14,13 +15,14 @@
       <p v-else>等待机器上报</p>
       <p v-if="m.snapshot?.health" class="muted">服务日志 {{mib(m.snapshot.health.logs_bytes)}} MiB · journal {{mib(m.snapshot.health.journal_bytes)}} MiB · {{m.snapshot.health.log_guard_enabled===true?'轮转已启用':m.snapshot.health.log_guard_enabled===false?'检查日志保护':'日志保护未知'}}{{m.snapshot.health.stale?' · 采样已过期':''}}</p>
       <details v-if="m.settings"><summary>额度与校准</summary>
-        <form @submit.prevent="save(m)" @input="dirty=true">
-          <label>套餐 GB<input type="number" min="0.001" step="0.001" v-model="m.draftQuota" :disabled="!canWrite" placeholder="未配置" /></label>
-          <label>每月重置日<input type="number" min="1" max="31" required v-model="m.draftDay" :disabled="!canWrite" /></label>
-          <label>刷新<select v-model="m.draftRefresh" :disabled="!canWrite"><option :value="0">手动</option><option :value="60">1 分钟</option><option :value="300">5 分钟</option><option :value="600">10 分钟</option><option :value="1800">30 分钟</option></select></label>
-          <label>校准已用 GB<input type="number" min="0" step="0.001" v-model="m.calibrate" :disabled="!canWrite" placeholder="留空保留" /></label>
-          <label><input type="checkbox" v-model="m.clearCalibration" :disabled="!canWrite" />取消校准</label>
+        <form @submit.prevent="save(m)">
+          <label>套餐 GB<input type="number" min="0.001" step="0.001" v-model="m.draftQuota" :disabled="busy||!canWrite" placeholder="未配置" /></label>
+          <label>每月重置日<input type="number" min="1" max="31" required v-model="m.draftDay" :disabled="busy||!canWrite" /></label>
+          <label>刷新<select v-model="m.draftRefresh" :disabled="busy||!canWrite"><option :value="0">手动</option><option :value="60">1 分钟</option><option :value="300">5 分钟</option><option :value="600">10 分钟</option><option :value="1800">30 分钟</option></select></label>
+          <label>校准已用 GB<input type="number" min="0" step="0.001" v-model="m.calibrate" :disabled="busy||!canWrite" placeholder="留空保留" /></label>
+          <label><input type="checkbox" v-model="m.clearCalibration" :disabled="busy||!canWrite" />取消校准</label>
           <button :disabled="busy||!canWrite">保存</button>
+          <button v-if="isDraftDirty(m)" type="button" :disabled="busy" @click="discardDraft(m)">撤销修改</button>
         </form>
       </details>
       <p class="muted">{{m.applied_revision===m.desired_revision?'已同步':'等待节点同步'}} · 入站、出站取较大值</p>
@@ -30,7 +32,9 @@
 <script setup>
 import {ref,computed,onMounted,onUnmounted} from 'vue';
 import {managementRequest} from '../api';
-const machines=ref([]),busy=ref(false),error=ref(''),canWrite=ref(false),dirty=ref(false);
+import {mergeDraftRows,isDraftDirty,discardDraft} from '../drafts.js';
+const machines=ref([]),busy=ref(false),error=ref(''),notice=ref(''),canWrite=ref(false);
+const dirty=computed(()=>machines.value.some(isDraftDirty));
 let timer,lastLoad=0;
 const colors=['#3b82f6','#14b8a6','#f59e0b','#a78bfa','#ec4899'];
 const distribution=computed(()=>machines.value.filter(m=>m.snapshot?.used_bytes>0).map(m=>({host_id:m.host_id,name:m.name,bytes:m.snapshot.used_bytes})));
@@ -39,8 +43,21 @@ const gradient=computed(()=>{let at=0;return 'conic-gradient('+distribution.valu
 const mib=n=>n==null?'未知':(n/1048576).toFixed(1);
 const gb=n=>n===null||n===undefined?'未知':(n/1e9).toFixed(2);
 function forecast(s){const f=s.forecast;if(!f||f.projected_used_bytes===undefined)return '暂无预测';return `预计周期末 ${gb(f.projected_used_bytes)} GB · ${f.state==='at_risk'||f.state==='exhausted'?'可能用完':'额度内'}`;}
-async function load(){busy.value=true;error.value='';try{canWrite.value=(await managementRequest('get','/status')).writes_enabled;machines.value=(await managementRequest('get','/machines')).machines.map(m=>({...m,draftQuota:m.settings?.quota_bytes==null?'':m.settings.quota_bytes/1e9,draftDay:m.settings?.reset_day,draftRefresh:m.settings?.refresh_seconds??60,calibrate:'',clearCalibration:false}));dirty.value=false;lastLoad=Date.now();}catch(e){machines.value=[];canWrite.value=false;error.value=e.status===401?'请先登录':'机器数据暂不可用';}finally{busy.value=false;}}
-async function save(m){busy.value=true;error.value='';try{await managementRequest('put','/machines/'+m.host_id,{revision:m.settings.revision,quota_bytes:m.draftQuota===''?null:Math.round(Number(m.draftQuota)*1e9),reset_day:Number(m.draftDay),refresh_seconds:Number(m.draftRefresh),...(m.clearCalibration?{calibrate_used_bytes:null}:m.calibrate!==''?{calibrate_used_bytes:Math.round(Number(m.calibrate)*1e9)}:{})});await load();}catch(e){error.value=e.status===409?'设置已更新，请刷新后重试':'保存失败，请检查设置和最新采样';}finally{busy.value=false;}}
+async function refresh(resetId=null){
+  canWrite.value=(await managementRequest('get','/status')).writes_enabled;
+  const records=(await managementRequest('get','/machines')).machines;
+  machines.value=mergeDraftRows(machines.value,records,'host_id',m=>({draftQuota:m.settings?.quota_bytes==null?'':m.settings.quota_bytes/1e9,draftDay:m.settings?.reset_day??'',draftRefresh:m.settings?.refresh_seconds??60,calibrate:'',clearCalibration:false}),m=>m.settings?.revision,resetId);
+  lastLoad=Date.now();
+}
+async function load(){if(busy.value)return;busy.value=true;error.value='';try{await refresh();}catch(e){if([401,403].includes(e.status)){machines.value=[];canWrite.value=false;}error.value=e.status===401?'请先登录':'刷新失败，未保存的输入已保留';}finally{busy.value=false;}}
+async function save(m){
+  if(busy.value)return;busy.value=true;error.value='';notice.value='';
+  try{
+    await managementRequest('put','/machines/'+m.host_id,{revision:m._editRevision,quota_bytes:m.draftQuota===''?null:Math.round(Number(m.draftQuota)*1e9),reset_day:Number(m.draftDay),refresh_seconds:Number(m.draftRefresh),...(m.clearCalibration?{calibrate_used_bytes:null}:m.calibrate!==''?{calibrate_used_bytes:Math.round(Number(m.calibrate)*1e9)}:{})});
+    notice.value='已保存';
+    try{await refresh(m.host_id);}catch(e){notice.value='已保存，但最新数据读取失败；请刷新核对，勿重复提交。';if([401,403].includes(e.status)){machines.value=[];canWrite.value=false;}}
+  }catch(e){error.value=e.status===409?'设置已更新；刷新不会清除输入，可撤销修改后重新编辑':e.message==='fresh_sample_required'?'校准需要最新采样，请等待机器上报后重试':'保存失败，请检查设置和最新采样';}finally{busy.value=false;}
+}
 onMounted(()=>{load();timer=setInterval(()=>{const periods=machines.value.map(m=>m.settings?.refresh_seconds||0).filter(n=>n>0);if(periods.length&&!document.hidden&&!busy.value&&!dirty.value&&Date.now()-lastLoad>=Math.min(...periods)*1000)load();},10000);});
 onUnmounted(()=>clearInterval(timer));
 </script>

@@ -1,4 +1,4 @@
-import { preserveNativeQuota, managedEditorSettings } from '../extensions/management/traffic.js';
+import { preserveNativeQuota, managedEditorSettings, attachManagedQuota } from '../extensions/management/traffic.js';
 import { buildAuthCookie, buildClearAuthCookie, checkAuth, simpleAuthResponse, validateCredentials, generateToken } from '../middleware/auth.js';
 import { getLatestMetricsForAllServers } from '../database/schema.js';
 import { getAllServers, clearServersListCache } from '../utils/cache.js';
@@ -654,6 +654,8 @@ async function handleListAction({ env }) {
 
     return item;
   });
+
+  await attachManagedQuota(serversWithStatus, env, true);
 
   if (stats.online > 0) {
     stats.avg_cpu = (stats.total_cpu / stats.online).toFixed(2);
