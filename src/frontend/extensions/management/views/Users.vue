@@ -8,6 +8,7 @@
       {{ error }}
       <router-link v-if="needsLogin" to="/admin">前往登录</router-link>
     </p>
+    <p v-if="notice" role="status">{{notice}}</p>
     <template v-if="status">
       <p class="mode">
         {{
@@ -20,7 +21,7 @@
             v-model="newName"
             maxlength="80"
             required
-            :disabled="!canWrite"
+            :disabled="busy || !canWrite"
         /></label>
         <button :disabled="busy || !canWrite">创建用户</button>
       </form>
@@ -32,16 +33,16 @@
               v-model="user.draftName"
               maxlength="80"
               required
-              :disabled="!canWrite"
+              :disabled="busy || !canWrite"
           /></label>
           <label
             ><input
               type="checkbox"
               v-model="user.draftEnabled"
-              :disabled="!canWrite"
+              :disabled="busy || !canWrite"
             />启用</label
           >
-          <fieldset :disabled="!canWrite">
+          <fieldset :disabled="busy || !canWrite">
             <legend>授权机器</legend>
             <label v-for="host in hosts" :key="host.host_id"
               ><input
@@ -60,10 +61,11 @@
                   : "尚未授权机器"
             }}
           </p>
-          <label>月参考额度 GB<input type="number" min="0.001" step="0.001" v-model="user.draftQuota" :disabled="!canWrite" placeholder="未配置" /></label>
+          <label>月参考额度 GB<input type="number" min="0.001" step="0.001" v-model="user.draftQuota" :disabled="busy || !canWrite" placeholder="未配置" /></label>
           <button :disabled="busy || !canWrite">保存</button>
+          <button v-if="isDraftDirty(user)" type="button" :disabled="busy" @click="discardDraft(user)">撤销修改</button>
         </form>
-        <p v-if="!user.enabled" class="sync">已阻止新连接；已有连接可能继续。</p>
+        <p v-if="!user.enabled" class="sync">{{disabledUserStatus(user)}}</p>
         <div class="actions">
           <button type="button" :disabled="busy || !canWrite || !user.enabled" @click="links(user, false)">查看订阅链接</button>
           <button type="button" :disabled="busy || !canWrite || !user.enabled" @click="resetUser = user">重置链接</button>
@@ -88,6 +90,8 @@
 import { ref, onMounted, computed } from "vue";
 import { managementRequest } from "../api";
 import UsageHistory from "../components/UsageHistory.vue";
+import {mergeDraftRows,isDraftDirty,discardDraft,disabledUserStatus} from '../drafts.js';
+const notice=ref('');
 const visibleLinks=ref(null), resetUser=ref(null), historyUser=ref(null);
 const users = ref([]),
   hosts = ref([]),
@@ -99,7 +103,7 @@ const users = ref([]),
 const canWrite = computed(() => status.value?.writes_enabled === true);
 function showError(e) {
   visibleLinks.value = null;
-  if ([401, 403, 404, 503].includes(e.status)) {
+  if ([401, 403].includes(e.status)) {
     status.value = null;
     users.value = [];
     hosts.value = [];
@@ -109,28 +113,29 @@ function showError(e) {
     e.status === 401
       ? "请重新登录后访问用户管理。"
       : e.status === 409
-        ? "记录已更新，请刷新后重试。"
+        ? "记录已更新；刷新保留输入，可撤销修改后重新编辑。"
         : e.status === 404
           ? "管理扩展尚未启用。"
           : e.status === 503
             ? "管理服务暂不可用。"
             : e.message;
 }
-async function refresh() {
+async function refresh(resetId=null) {
   status.value = await managementRequest("get", "/status");
   const data = await managementRequest("get", "/users");
   hosts.value = data.hosts;
-  users.value = data.users.map((u) => ({
-    ...u,
+  users.value = mergeDraftRows(users.value,data.users,"user_id",(u) => ({
     draftName: u.name,
     draftQuota: u.quota_bytes === null ? "" : u.quota_bytes / 1e9,
     draftEnabled: u.enabled,
     draftHosts: u.hosts.filter((h) => h.allowed).map((h) => h.host_id),
-  }));
+  }),u=>u.revision,resetId);
 }
 async function load() {
+  if (busy.value) return;
   busy.value = true;
   error.value = "";
+  notice.value = "";
   try {
     await refresh();
   } catch (e) {
@@ -140,15 +145,18 @@ async function load() {
   }
 }
 async function create() {
+  if (busy.value) return;
   busy.value = true;
   error.value = "";
+  notice.value = "";
   try {
     await managementRequest("post", "/users", {
       name: newName.value,
       hosts: [],
     });
     newName.value = "";
-    await refresh();
+    notice.value="用户已创建";
+    await refreshAfterSave();
   } catch (e) {
     showError(e);
   } finally {
@@ -156,29 +164,36 @@ async function create() {
   }
 }
 async function save(user) {
+  if (busy.value) return;
   busy.value = true;
   error.value = "";
+  notice.value = "";
   try {
     await managementRequest("put", "/users/" + user.user_id, {
-      revision: user.revision,
+      revision: user._editRevision,
       name: user.draftName,
       enabled: user.draftEnabled,
       hosts: user.draftHosts,
       quota_bytes: user.draftQuota === "" ? null : Math.round(Number(user.draftQuota) * 1e9),
     });
-    await refresh();
+    notice.value="已保存";
+    await refreshAfterSave(user.user_id);
   } catch (e) {
     showError(e);
   } finally {
     busy.value = false;
   }
 }
+async function refreshAfterSave(id=null) {
+  try {await refresh(id);} catch(e) {notice.value="已保存，但最新数据读取失败；请刷新核对，勿重复提交。";if([401,403].includes(e.status))showError(e);}
+}
 async function links(user, reset) {
+  if(busy.value)return;
   busy.value=true; error.value=""; visibleLinks.value=null;
   try {
     const data=await managementRequest("post","/users/"+user.user_id+"/subscription",{reset});
     visibleLinks.value={user_id:user.user_id,...data};resetUser.value=null;
-    if(reset)await refresh();
+    await refreshAfterSave();
   } catch(e){showError(e);} finally{busy.value=false;}
 }
 onMounted(load);

@@ -145,9 +145,10 @@
             <td>
               <span
                 class="spec-text"
+                v-if="!server.managed_quota"
                 :class="{ 'spec-copied': isSpecCopied(server, 'traffic_limit') }"
                 @click.stop="emitCopySpec(server, 'traffic_limit', server.traffic_limit ? formatBytes(server.traffic_limit * 1000 * 1000 * 1000) : '')"
-              >{{ server.traffic_limit ? formatBytes(server.traffic_limit * 1000 * 1000 * 1000) : '-' }}</span>
+              >{{ server.traffic_limit ? formatBytes(server.traffic_limit * 1000 * 1000 * 1000) : '-' }}</span><span v-else>{{server.managed_quota.status==='unavailable'?'额度暂不可用':server.managed_quota.quota_bytes==null?'未配置':formatBytes(server.managed_quota.quota_bytes)}}</span>
             </td>
             <td>
               <span

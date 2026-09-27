@@ -92,7 +92,8 @@
           <span class="sysinfo-label">📊 {{ trans.monthlyTraffic }}</span>
           <span class="sysinfo-value sysinfo-small">↓ {{ formatBytes(server.net_rx_monthly) }} / ↑ {{ formatBytes(server.net_tx_monthly) }}</span>
         </div>
-        <div class="sysinfo-item" v-if="server.net_rx_monthly">
+        <div class="sysinfo-item" v-if="server.managed_quota"><QuotaSummary :value="server.managed_quota" /></div>
+        <div class="sysinfo-item" v-if="server.net_rx_monthly && !server.managed_quota">
           <span class="sysinfo-label">📦 {{ trans.monthlyTrafficLimit }}</span>
           <span class="sysinfo-value sysinfo-small">
             {{ formatBytes(trafficUsageBytes) }}
@@ -396,6 +397,7 @@
 </template>
 
 <script setup>
+import QuotaSummary from '../extensions/management/components/QuotaSummary.vue'
 import { ref, computed, inject, onMounted, onUnmounted, watch, nextTick, h } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import TerminalHeader from '../components/TerminalHeader.vue'
@@ -1528,7 +1530,7 @@ const appendDataToChart = (chart, datasetIndex, timestamp, value, isPing = false
   chart.update('none')
 }
 
-const STATIC_FIELDS = ['id', 'name', 'region', 'arch', 'os', 'kernel_version', 'cpu_info', 'cpu_cores', 'gpu_info', 'expire_date', 'server_group', 'traffic_limit', 'net_rx_monthly', 'net_tx_monthly', 'boot_time', 'timestamp', 'ip_v4', 'ip_v6']
+const STATIC_FIELDS = ['managed_quota', 'id', 'name', 'region', 'arch', 'os', 'kernel_version', 'cpu_info', 'cpu_cores', 'gpu_info', 'expire_date', 'server_group', 'traffic_limit', 'net_rx_monthly', 'net_tx_monthly', 'boot_time', 'timestamp', 'ip_v4', 'ip_v6']
 const REALTIME_SAMPLE_FIELDS = new Set([
   'cpu', 'ram_total', 'ram_used', 'swap_total', 'swap_used',
   'net_in_speed', 'net_out_speed', 'disk'
