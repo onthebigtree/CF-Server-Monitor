@@ -23,6 +23,7 @@ export async function handleManagement(request, env, sys) {
     ["/status", ["GET"]],
     ["/users", ["GET", "POST"]],
     ["/history", ["POST"]],
+    ["/history-series", ["POST"]],
     ["/machines", ["GET"]],
   ]);
   const methods =

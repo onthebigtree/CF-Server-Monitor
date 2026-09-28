@@ -7,7 +7,7 @@ function options() {
   };
 }
 export async function managementRequest(method, path, payload) {
-  if (!/^\/(?:status|history|machines(?:\/[a-z0-9_-]{1,40})?|users(?:\/[a-f0-9]{32}(?:\/subscription)?)?)$/.test(path))
+  if (!/^\/(?:status|history(?:-series)?|machines(?:\/[a-z0-9_-]{1,40})?|users(?:\/[a-f0-9]{32}(?:\/subscription)?)?)$/.test(path))
     throw new Error("invalid_management_path");
   const result =
     method === "get"
