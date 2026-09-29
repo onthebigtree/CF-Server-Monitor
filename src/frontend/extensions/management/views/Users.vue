@@ -25,7 +25,7 @@
         /></label>
         <button :disabled="busy || !canWrite">创建用户</button>
       </form>
-      <UserOverview :users="users" :hosts="hosts" :refresh-key="refreshKey" @manage="openManager" @auth-error="showError" />
+      <UserOverview :users="users" :hosts="hosts" :can-write="canWrite && !busy" :refresh-key="refreshKey" @manage="openManager" @auth-error="showError" />
       <dialog v-if="selectedUser" ref="managerDialog" aria-labelledby="manager-title" @cancel.prevent="closeManager">
         <header><h2 id="manager-title">管理 · {{selectedUser.name}}</h2><button type="button" :disabled="busy" @click="closeManager">{{isDraftDirty(selectedUser) ? '取消并关闭' : '关闭'}}</button></header>
         <p v-if="error" role="alert">{{error}}</p><p v-if="notice" role="status">{{notice}}</p>
@@ -80,8 +80,8 @@
           <button @click="resetUser = null">取消</button>
         </div>
         <div v-if="visibleLinks?.user_id === user.user_id" class="links">
-          <label>Clash<input readonly :value="visibleLinks.mihomo" aria-label="Clash 订阅" /></label>
-          <label>Shadowrocket<input readonly :value="visibleLinks.shadowrocket" aria-label="Shadowrocket 订阅" /></label>
+          <div class="link-row"><label>Clash<input readonly :value="visibleLinks.mihomo" aria-label="Clash 订阅" @focus="$event.target.select()" /></label><button type="button" @click="copyLink(visibleLinks.mihomo,'Clash')">复制</button></div>
+          <div class="link-row"><label>Shadowrocket<input readonly :value="visibleLinks.shadowrocket" aria-label="Shadowrocket 订阅" @focus="$event.target.select()" /></label><button type="button" @click="copyLink(visibleLinks.shadowrocket,'Shadowrocket')">复制</button></div>
           <button @click="visibleLinks = null">收起链接</button>
         </div>
         <UsageHistory v-if="historyUser === user.user_id" :user-id="user.user_id" :hosts="hosts" />
@@ -97,6 +97,8 @@ import { managementRequest } from "../api";
 import { managementLoginRoute } from "../navigation.js";
 import UsageHistory from "../components/UsageHistory.vue";
 import {mergeDraftRows,isDraftDirty,discardDraft,disabledUserStatus} from '../drafts.js';
+import {copySubscription} from '../clipboard.js';
+async function copyLink(text,label){notice.value=await copySubscription(text)?'已复制 '+label+' 订阅':'自动复制失败，请长按链接手动复制。';}
 const notice=ref('');
 const showCreate=ref(false), selectedId=ref(null), managerDialog=ref(null), refreshKey=ref(0);
 const selectedUser=computed(()=>users.value.find(u=>u.user_id===selectedId.value));
@@ -296,4 +298,7 @@ fieldset {
 [role="alert"] {
   color: #c2410c;
 }
+
+.link-row{display:flex;align-items:flex-end;gap:8px}.link-row label{flex:1;min-width:0;display:grid;gap:6px}.link-row input{box-sizing:border-box;min-width:0}.link-row button{flex-shrink:0;min-height:44px}
+@media(max-width:700px){.management-page{padding:0 12px;margin:16px auto}header{flex-wrap:wrap;gap:8px}h1{font-size:22px;margin:8px 0}button{min-height:44px}dialog{box-sizing:border-box;width:calc(100vw - 20px);max-height:90dvh;padding:16px}dialog h2{font-size:18px;overflow-wrap:anywhere}dialog header{flex-wrap:nowrap;align-items:flex-start}dialog header button{flex-shrink:0}dialog form>label:not(:has(input[type=checkbox])){width:100%;display:grid;gap:6px}dialog input:not([type=checkbox]){max-width:none;width:100%;box-sizing:border-box;font-size:16px}dialog fieldset{display:grid;gap:4px}dialog fieldset label{min-height:44px;white-space:normal}dialog .actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}dialog .actions button{padding:10px 8px}.create-form{padding:14px}.create-form label{display:grid;width:100%}.create-form input{max-width:none;min-width:0;font-size:16px}}
 </style>
