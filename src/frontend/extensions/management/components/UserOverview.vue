@@ -18,7 +18,19 @@
       <div v-for="user in ranked" :key="user.user_id" class="user-row">
         <div class="identity"><strong>{{user.name}}</strong><div><span :class="['badge',{off:!user.enabled}]">{{user.enabled ? '启用' : '停用'}}</span><small>{{user.hosts.filter(h=>h.allowed).length}} 台授权机器</small><small v-if="user.hosts.some(h=>h.status==='pending')">待同步</small></div></div>
         <div class="usage"><div><span>{{usageLabel(user.user_id)}}</span><small v-if="!loading && values[user.user_id]?.bytes != null && total">占 {{(values[user.user_id].bytes/total*100).toFixed(1)}}%</small></div><progress :aria-label="user.name+'的用量'" :value="loading ? 0 : values[user.user_id]?.bytes || 0" :max="maximum" /></div>
-        <button class="manage" @click="$emit('manage',user)" :aria-label="'管理 '+user.name">管理</button>
+        <div class="row-actions"><button class="expand" :aria-expanded="!!expanded[user.user_id]" :aria-controls="'machines-'+user.user_id" @click="expanded[user.user_id]=!expanded[user.user_id]">{{expanded[user.user_id] ? '收起明细' : '机器明细'}} <span aria-hidden="true">{{expanded[user.user_id] ? '▴' : '▾'}}</span></button>
+        <button class="manage" @click="$emit('manage',user)" :aria-label="'管理 '+user.name">管理</button></div>
+        <div v-if="expanded[user.user_id]" :id="'machines-'+user.user_id" class="machine-details">
+          <p class="detail-caption">{{window.from}} — {{window.to}} · 最终出口机器 · 上传＋下载</p>
+          <p v-if="loading" role="status">正在读取机器用量…</p>
+          <p v-else-if="values[user.user_id]?.failed" class="warning" role="status">机器用量暂不可用，请刷新重试。</p>
+          <template v-else>
+            <div class="table-scroll"><table :aria-label="user.name+'的机器用量'"><thead><tr><th scope="col">机器</th><th scope="col">上传</th><th scope="col">下载</th><th scope="col">合计</th><th scope="col">占该用户用量</th></tr></thead>
+              <tbody><tr v-for="host in machineBreakdown(values[user.user_id],hosts)" :key="host.host_id"><th scope="row">{{host.name}}</th><td :title="exactBytes(host.upload)">{{detailBytes(host.upload)}}</td><td :title="exactBytes(host.download)">{{detailBytes(host.download)}}</td><td :title="exactBytes(host.bytes)">{{host.bytes===null?'暂无记录':detailBytes(host.bytes)}}</td><td>{{host.share===null?'—':host.share.toFixed(1)+'%'}}</td></tr></tbody>
+            </table></div>
+            <p class="detail-caption">占比按该用户在此时段的已记录用量计算；暂无记录不代表零用量。</p>
+          </template>
+        </div>
       </div>
     </div>
   </section>
@@ -27,8 +39,8 @@
 import {ref,computed,watch,onUnmounted} from 'vue';
 import UsageTimeline from './UsageTimeline.vue';
 import {managementRequest} from '../api';
-import {overviewWindow,loadUserUsage} from '../user-overview.js';
-const props=defineProps({users:{type:Array,default:()=>[]},refreshKey:Number});
+import {overviewWindow,loadUserUsage,machineBreakdown} from '../user-overview.js';
+const props=defineProps({users:{type:Array,default:()=>[]},hosts:{type:Array,default:()=>[]},refreshKey:Number});
 const emit=defineEmits(['manage','auth-error']);
 const periods=[{value:'today',label:'今日'},{value:'week',label:'近7天'},{value:'month',label:'本月'},{value:'custom',label:'自选日期'}];
 const period=ref('today'),window=ref(overviewWindow('today')),values=ref({}),loading=ref(false),updated=ref('');
@@ -39,6 +51,9 @@ function applyDates(){
   if(!Number.isFinite(duration)||duration<0||duration>=90*86400000||toDate.value>overviewWindow('today').to){dateError.value='请选择不超过 90 天且不晚于今天的日期范围';return;}
   dateError.value='';customWindow.value={from:fromDate.value,to:toDate.value};
 }
+const expanded=ref({});
+function detailBytes(n){if(n==null)return '—';if(n===0)return '0 B';const units=['B','KB','MB','GB','TB'];const i=Math.min(4,Math.floor(Math.log10(n)/3));return (n/1000**i).toLocaleString('zh-CN',{maximumFractionDigits:2})+' '+units[i];}
+function exactBytes(n){return n==null?'暂无记录':n.toLocaleString('zh-CN')+' 字节';}
 let generation=0;
 const format=n=>(n/1e9).toFixed(2);
 const enabled=computed(()=>props.users.filter(u=>u.enabled).length);
@@ -60,6 +75,8 @@ watch(()=>[props.users.map(u=>u.user_id).join(','),props.refreshKey,period.value
 onUnmounted(()=>{generation++;});
 </script>
 <style scoped>
+.row-actions{display:flex;align-items:center;gap:8px}.expand{background:transparent;color:var(--text-secondary,#718096);font-size:12px}.expand:hover,.expand[aria-expanded=true]{color:#2563eb;background:#2563eb0a}.expand:focus-visible{outline:2px solid #2563eb;outline-offset:2px}.machine-details{grid-column:1/-1;min-width:0;padding:4px 16px 8px;background:#8795aa08;border:1px solid #8795aa20;border-radius:10px}.detail-caption{font-size:12px;color:var(--text-secondary,#718096);line-height:1.6;margin:12px 0}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}th,td{text-align:right;padding:12px;border-bottom:1px solid #8795aa20}th:first-child{text-align:left;padding-left:0}thead th{font-weight:500;color:var(--text-secondary,#718096)}tbody th{font-weight:500}tbody tr:last-child>*{border-bottom:0}@media(max-width:600px){.row-actions{grid-column:2;grid-row:1;flex-wrap:wrap;justify-content:flex-end;gap:4px}.row-actions button{padding:8px}.machine-details{padding:0 10px}.machine-details th,.machine-details td{padding:10px 8px}}
+
 .date-range{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:0 0 18px;font-size:12px}.date-range label{display:flex;gap:8px;align-items:center}.date-range input{font:inherit;background:var(--bg-card,white);color:inherit;border:1px solid #8795aa40;border-radius:7px;padding:8px}.date-range button{background:#2563eb;color:white}.date-range span{color:#c2410c}
 
 h2{font-size:18px;margin:0}.toolbar,.list-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:24px 0 18px}.toolbar p,.list-heading span{font-size:12px;color:var(--text-secondary,#718096);margin:7px 0 0}.periods{display:flex;gap:4px;background:#8795aa15;padding:4px;border-radius:10px}button{font:inherit;border:0;cursor:pointer;border-radius:7px;padding:9px 14px;white-space:nowrap}.periods button{background:transparent;color:inherit}.periods button[aria-pressed=true]{background:var(--bg-card,white);color:#2563eb;box-shadow:0 1px 5px #0001}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.metrics>div{background:var(--bg-card,white);border:1px solid #8795aa30;border-radius:14px;padding:20px;display:grid;gap:10px}.metrics span{font-size:13px;color:var(--text-secondary,#718096)}.metrics strong{font-size:30px;line-height:1.2}.metrics small{font-size:12px;font-weight:normal;color:var(--text-secondary,#718096)}.user-list{margin-top:24px;background:var(--bg-card,white);border:1px solid #8795aa30;border-radius:14px;padding:0 20px}.list-heading{margin:20px 0}.user-row{display:grid;grid-template-columns:minmax(140px,1fr) minmax(160px,1.3fr) auto;gap:24px;align-items:center;padding:20px 0;border-top:1px solid #8795aa25}.identity strong{overflow-wrap:anywhere}.identity>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:9px}.identity small,.usage small{font-size:12px;color:var(--text-secondary,#718096)}.badge{font-size:11px;background:#10b98118;color:#059669;border-radius:5px;padding:3px 7px}.badge.off{background:#8795aa20;color:var(--text-secondary,#718096)}.usage>div{display:flex;justify-content:space-between;gap:8px;font-size:14px;margin-bottom:6px}progress{display:block;width:100%;height:8px;appearance:none;border:0;border-radius:8px;overflow:hidden;background:#8795aa20}progress::-webkit-progress-bar{background:#8795aa20}progress::-webkit-progress-value{background:#3b82f6;border-radius:8px}progress::-moz-progress-bar{background:#3b82f6}.manage{background:#2563eb12;color:#2563eb}.empty{padding-bottom:20px}.warning{color:#c2410c;font-size:13px}@media(max-width:600px){.toolbar{flex-wrap:wrap}.metrics{gap:8px}.metrics>div{padding:12px}.metrics strong{font-size:24px}.user-row{grid-template-columns:1fr auto;gap:14px}.usage{grid-column:1/-1;grid-row:2}.manage{grid-column:2;grid-row:1}.list-heading span{display:none}.user-list{padding:0 14px}}

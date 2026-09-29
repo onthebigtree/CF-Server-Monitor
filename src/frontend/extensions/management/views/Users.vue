@@ -25,7 +25,7 @@
         /></label>
         <button :disabled="busy || !canWrite">创建用户</button>
       </form>
-      <UserOverview :users="users" :refresh-key="refreshKey" @manage="openManager" @auth-error="showError" />
+      <UserOverview :users="users" :hosts="hosts" :refresh-key="refreshKey" @manage="openManager" @auth-error="showError" />
       <dialog v-if="selectedUser" ref="managerDialog" aria-labelledby="manager-title" @cancel.prevent="closeManager">
         <header><h2 id="manager-title">管理 · {{selectedUser.name}}</h2><button type="button" :disabled="busy" @click="closeManager">{{isDraftDirty(selectedUser) ? '取消并关闭' : '关闭'}}</button></header>
         <p v-if="error" role="alert">{{error}}</p><p v-if="notice" role="status">{{notice}}</p>
